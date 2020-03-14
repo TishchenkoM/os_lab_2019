@@ -1,6 +1,9 @@
 #include "swap.h"
+#include <stdio.h>
 
 void Swap(char *left, char *right)
 {
-	// ваш код здесь
+ char therd = *left;
+ *left = *right;
+ *right = therd; 
 }
