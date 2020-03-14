@@ -1,7 +1,7 @@
 #include "revert_string.h"
 #include <string.h>
 
-void RevertString(char *str)
+extern void RevertString(char *str)
 {
 	int size = strlen(str)-1;
     int i;
