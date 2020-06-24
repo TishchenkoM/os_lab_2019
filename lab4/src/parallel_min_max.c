@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 1
 #include <ctype.h>
 #include <limits.h>
 #include <stdbool.h>
@@ -5,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
+#include <signal.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -15,11 +16,22 @@
 #include "find_min_max.h"
 #include "utils.h"
 
+int pnum;
+pid_t* ch_pid;
+
+void alarm_s()
+ {
+  for(int i=0; i<pnum;i++) 
+   {kill(ch_pid[i], SIGQUIT);}
+  }
+
 int main(int argc, char **argv) {
   int seed = -1;
   int array_size = -1;
-  int pnum = -1;
-  bool with_files = true;
+  pnum = -1;
+  bool with_files = false;
+  int timeout = -1;
+
 
   while (true) {
     int current_optind = optind ? optind : 1;
@@ -27,8 +39,9 @@ int main(int argc, char **argv) {
     static struct option options[] = {{"seed", required_argument, 0, 0},
                                       {"array_size", required_argument, 0, 0},
                                       {"pnum", required_argument, 0, 0},
-                                      {"by_files", required_argument, 0, 'f'},
-                                      {0, 0, 0, 0}};
+				      {"timeout", optional_argument, 0 ,0},
+                                      {"by_files", no_argument, 0, 'f'},
+				      {0, 0, 0, 0}};
 
     int option_index = 0;
     int c = getopt_long(argc, argv, "f", options, &option_index);
@@ -66,7 +79,9 @@ int main(int argc, char **argv) {
 		}
             break;
           case 3:
-            with_files = true;
+            timeout = atoi(optarg);
+		if(timeout<=0)
+		{printf("timeout is negative\n");return 1;}
             break;
 
           defalut:
@@ -115,8 +130,11 @@ int main(int argc, char **argv) {
   if(!with_files)
   {pipe(pipe_fd);}
 
+  ch_pid=malloc(sizeof(pid_t)*pnum);
+
   for (int i = 0; i < pnum; i++) {
     pid_t child_pid = fork();
+    ch_pid[i] = child_pid;
     int step_i;
     if (i < pnum - 1){step_i = step;}
     else{step_i = last_step;}
@@ -154,17 +172,32 @@ int main(int argc, char **argv) {
   }
 
   int status;
+  int pid_count=0;
+  signal(SIGALRM, alarm_s);
+
+ if(timeout>0)
+ {
   while (active_child_processes > 0) {
     // your code here
-    wait(&status);
+    alarm(timeout);
+    waitpid(ch_pid[pid_count], &status, WNOHANG);
     active_child_processes -= 1;
-  }
+    pid_count++;
+  }}
+  else
+  {
+    while(active_child_processes >0){
+     wait(&status);
+     active_child_processes -= 1;
+    }
+   }
 
   struct MinMax *min_max=malloc(sizeof(struct MinMax));
   int min = INT_MAX;
   int max = INT_MIN;
   FILE *min_max_file;
-  char f_path[10]; 
+  char f_path[10];
+   
  
   for (int i = 0; i < pnum; i++) {
   
